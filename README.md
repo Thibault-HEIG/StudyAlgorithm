@@ -1,5 +1,5 @@
 # StudyAlgorithm
-Predictive algorithm to optimize study time
+Algorithme prédictif pour optimiser les révisions
 
 ## Plan détaillé
 1. Collecter des données
@@ -21,9 +21,9 @@ Predictive algorithm to optimize study time
 - Niveau de stress
 - Difficulté du test
 - Taux d'absence en cours
+Kaggle : https://www.kaggle.com/datasets
 
 ### Insights :
-
 - **Sommeil vs révision trade-off**
 - Heures de révision minimales pour passer
 - Détecter les sessions de révision inutiles
