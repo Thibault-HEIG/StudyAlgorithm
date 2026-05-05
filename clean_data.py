@@ -50,17 +50,11 @@ for col, (lo, hi) in clips.items():
     if col in df.columns:
         df[col] = df[col].clip(lo, hi)
 
-# Step 5 — Min-Max Scale Continuous Features
-print("Step 5: Scaling continuous features and saving scaler...")
-scale_cols = [
-    "study_hours_per_day", "social_media_hours", "netflix_hours",
-    "attendance_percentage", "sleep_hours", "exercise_frequency",
-    "mental_health_rating", "age"
-]
-
-scaler = MinMaxScaler()
-df[scale_cols] = scaler.fit_transform(df[scale_cols])
-joblib.dump(scaler, "models/scaler.pkl")
+# Step 5 — Format Continuous Features
+print("Step 5: Formatting continuous features...")
+df["attendance_percentage"] = df["attendance_percentage"] / 100.0
+# Age and hours are kept in natural units as requested.
+# We no longer use a global MinMaxScaler for these columns.
 
 df_main = df.copy()
 
@@ -110,9 +104,9 @@ for col, (lo, hi) in clips.items():
 for col in df_main.columns:
     if col not in spf.columns:
         spf[col] = np.nan
-spf[scale_cols] = scaler.transform(spf[scale_cols])
-# Post-scaling clip to ensure [0, 1] range even if data was outside df_main's range
-spf[scale_cols] = spf[scale_cols].clip(0, 1)
+
+# Manual scaling for attendance
+spf["attendance_percentage"] = spf["attendance_percentage"] / 100.0
 
 df_spf = spf[df_main.columns.tolist() + ["tutoring_sessions", "peer_influence", "learning_disabilities"]]
 
@@ -150,11 +144,8 @@ for col, (lo, hi) in clips.items():
     if col in spi.columns:
         spi[col] = spi[col].clip(lo, hi)
 
-for col in scale_cols:
-    if col not in spi.columns:
-        spi[col] = np.nan
-spi[scale_cols] = scaler.transform(spi[scale_cols])
-spi[scale_cols] = spi[scale_cols].clip(0, 1)
+# Manual scaling for attendance
+spi["attendance_percentage"] = spi["attendance_percentage"] / 100.0
 
 # Align SPI with the full schema
 spi_aligned = spi.copy()
@@ -190,6 +181,9 @@ for col in df_final.columns:
     if col != "exam_score":
         df_final[col] = df_final[col].fillna(df_final[col].median())
 
+# Ensure age is integer
+df_final["age"] = df_final["age"].astype(int)
+
 # Scale tutoring and peer influence (they were added after initial scaling)
 # peer_influence was ordinal 0-2 -> map to [0, 1]
 df_final["peer_influence"] = df_final["peer_influence"] / 2
@@ -205,14 +199,15 @@ assert df_final.isnull().sum().sum() == 0, \
 assert df_final["exam_score"].between(0, 100).all(), \
     "exam_score contains values outside [0, 100]"
 
-print("Checking scaled features range:")
-for col in scale_cols:
-    print(f"  {col}: min={df_final[col].min():.4f}, max={df_final[col].max():.4f}")
+assert df_final["attendance_percentage"].between(0, 1.000001).all(), \
+    "attendance_percentage contains values outside [0, 1]"
 
-assert (df_final[scale_cols] >= -0.000001).all().all() and (df_final[scale_cols] <= 1.000001).all().all(), \
-    "Scaled features contain values outside [0, 1]"
+assert df_final["age"].dtype == int or df_final["age"].dtype == np.int64, \
+    f"age is not integer, got {df_final['age'].dtype}"
 
 print(f"✓ Final dataset: {df_final.shape[0]} rows × {df_final.shape[1]} columns")
+print("Sample of formatted features:")
+print(df_final[["age", "study_hours_per_day", "attendance_percentage"]].head())
 
 # Step 10 — Save
 print("Step 10: Saving to data/cleaned_data.csv...")
